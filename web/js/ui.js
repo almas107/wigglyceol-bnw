@@ -41,7 +41,8 @@ function mutate(fn, keepSel) { History.push(App.song); fn(); if (!keepSel) App.s
 let saveTimer = 0;
 function changed() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { try { localStorage.setItem('scribblebox.song.v2', JSON.stringify(App.song)); } catch (e) { /* storage off */ } }, 400);
+  // an empty song isn't worth keeping, and must not replace the last real one
+  saveTimer = setTimeout(() => { if (!App.song.patterns.some((p) => p.notes.length)) return; try { localStorage.setItem('scribblebox.song.v2', JSON.stringify(App.song)); } catch (e) { /* storage off */ } }, 400);
 }
 function setSong(s, keepHistory) {
   App.song = SongKit.normalizeSong(s);
@@ -536,7 +537,23 @@ function drawArr(L) {
   if (App.startBar >= s0 && App.startBar <= s0 + visBars) { const x = xOf(App.startBar); G.rect(x, hy, 1, head + 1 + chans * rh, PINK); for (let k = 0; k < 4; k++) G.rect(x, hy + k, 6 - k * 1.5, 1, PINK); }
   if (pos >= 0) { const x = Math.round(gx + (pos / ps - s0) * cw); G.rect(x, hy, 2, head + 1 + chans * rh, YELLOW); }
   G.unclip();
-  for (let c = 0; c < chans; c++) if (rh >= 9) G.text(String(c + 1), R.x + 4, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', PAPER);
+  for (let c = 0; c < chans; c++) {
+    const dragging = App.drag && App.drag.lane === c;
+    if (dragging) G.rect(R.x + 2, gy + c * rh, lab - 3, rh - 1, PINK);
+    if (rh >= 9) G.text(String(c + 1), R.x + 4, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', dragging ? INK : PAPER);
+  }
+  // lane numbers: drag up/down to reorder whole lanes
+  region({ x: R.x, y: gy, w: lab, h: chans * rh }, { cursor: 'ns-resize', down: (pt) => {
+    const laneAt = (q) => clamp(Math.floor((q.y - gy) / rh), 0, chans - 1);
+    let pushed = false;
+    const d = { lane: laneAt(pt), cursor: 'ns-resize', move(q) {
+      const to = laneAt(q); if (to === d.lane) return;
+      if (!pushed) { History.push(song); pushed = true; }
+      for (const row of song.arrangement.bars) { const v = row.splice(d.lane, 1)[0]; row.splice(to, 0, v); }
+      d.lane = to; changed();
+    }, up() {} };
+    return d;
+  } });
   scrollbarH({ x: gx, y: R.y + R.h - hole - sb, w: gw, h: sb }, s0, total, visBars, (v) => { App.arrScroll = v; });
   App.arrGeom = { gx, gy, cw, rh, s0, chans };
   // bar numbers: click = play from here (whole song), drag = loop that section
@@ -571,15 +588,20 @@ function arrDown(pt, e) {
     const kill = (q) => { const k = arrCell(q); if (bars[k.bar] && bars[k.bar][k.ch] >= 0) { bars[k.bar][k.ch] = -1; changed(); } };
     kill(pt); return { move: kill, up() {} };
   }
-  if (cur >= 0 && cur !== App.pat) {
+  if (cur >= 0) {
     // pick a block up: click opens that page, drag moves it (hold ctrl/alt to copy)
-    selectPattern(cur);
+    if (cur !== App.pat) selectPattern(cur);
     let pushed = false, at = c;
     const copy = e.ctrlKey || e.altKey;
-    return { move(q) { const k = arrCell(q); if ((k.bar === at.bar && k.ch === at.ch) || k.bar < 0) return; if (!pushed) { History.push(song); pushed = true; } ensure(k.bar); if (!(copy && at === c)) bars[at.bar][at.ch] = -1; bars[k.bar][k.ch] = cur; at = k; changed(); }, up() {} };
+    return { cursor: 'grabbing', move(q) {
+      const k = arrCell(q); if ((k.bar === at.bar && k.ch === at.ch) || k.bar < 0) return;
+      if (!pushed) { History.push(song); pushed = true; }
+      ensure(k.bar);
+      if (!(copy && at === c)) bars[at.bar][at.ch] = -1;
+      bars[k.bar][k.ch] = cur; at = k; changed();
+    }, up() {} };
   }
   History.push(song);
-  if (cur === App.pat) { bars[c.bar][c.ch] = -1; changed(); return { move() {}, up() {} }; }
   const paint = (q) => { const k = arrCell(q); if (k.bar < 0) return; ensure(k.bar); if (bars[k.bar][k.ch] !== App.pat) { bars[k.bar][k.ch] = App.pat; changed(); } };
   paint(pt);
   return { move: paint, up() {} };
@@ -836,12 +858,12 @@ function openAbout() {
   });
 }
 function openHelp() {
-  dialog(340, 290, 'how to', (r) => {
+  dialog(340, 306, 'how to', (r) => {
     const L = [
       ['click the page', 'stamp a note (drag right = longer)'], ['drag a note', 'move it; grab its tail to stretch'], ['right click', 'snip it (or use the scissors)'],
       ['shift + drag', 'lasso some notes'], ['numpad + / -', 'longer / shorter notes'], ['ctrl+z / ctrl+y', 'undo / redo (the snail)'],
       ['arrow keys', 'nudge the chosen notes'], ['ctrl+c / ctrl+v', 'copy / paste notes'], ['ctrl+d', 'copy this page'], ['delete', 'remove the chosen notes'],
-      ['space', 'play / stop'], ['song strip', 'click = put this page there, drag = paint'], ['', 'click a block = open it, right click = clear'],
+      ['space', 'play / stop'], ['song strip', 'click = put this page there, drag = paint'], ['', 'drag a block = move it (ctrl = copy)'], ['', 'right click = clear, drag lane number = reorder'],
       ['bar numbers', 'click = play from there, drag = loop bars'], ['instruments', 'click = this page plays it'], ['', 'double click = tweak it'], ['ctrl + wheel', 'zoom the page'],
     ];
     L.forEach(([k, v], i) => { G.text(k, r.x, r.y + i * 13, 'body', INK); G.text(v, r.x + 92, r.y + i * 13, 'body', INK); });
@@ -973,11 +995,20 @@ function drawTitle() {
   const h1 = inR(App.pointer, r1);
   G.rect(r1.x + 3, r1.y + 3, r1.w, r1.h, INK); G.roundRect(r1.x, r1.y, r1.w, r1.h, 8, h1 ? PINK : CYAN, null); G.wrect(r1.x, r1.y, r1.w, r1.h, 0.5, INK, 1);
   G.handC("let's make noise!", cx, r1.y + 2, 16, INK, h1 ? 1.2 : 0.6);
-  region(r1, { cursor: 'pointer', down: tap(() => { App.title = false; Engine.ensure(); }) });
+  region(r1, { cursor: 'pointer', down: tap(startFresh) });
   word(cx - G.handW('or listen to an example song', 13) / 2, y + 32, 'or listen to an example song', () => { App.title = false; Engine.ensure(); loadExample(); setTimeout(() => play('song'), 50); }, { size: 13, underline: true });
+  if (App.saved) {
+    const t = 'or keep working on "' + G.handFit(App.saved.title || 'untitled', 140, 13) + '"';
+    word(cx - G.handW(t, 13) / 2, y + 52, t, () => { App.title = false; Engine.ensure(); Player.stop(); setSong(App.saved); App.pat = 0; App.inst = 0; App.startBar = 0; App.arrScroll = 0; centerRoll(); }, { size: 13, underline: true });
+  }
 }
 
 // ---------- actions ----------
+function startFresh() {
+  App.title = false; Engine.ensure(); Player.stop();
+  setSong(SongKit.newSong());
+  App.pat = 0; App.inst = 0; App.startBar = 0; App.arrScroll = 0; centerRoll();
+}
 function newPattern(dup) {
   const s = App.song, cur = pattern();
   mutate(() => { s.patterns.push(dup ? JSON.parse(JSON.stringify(cur)) : { inst: App.inst, key: cur.key, scale: cur.scale, notes: [] }); });
@@ -1143,7 +1174,7 @@ function bindInput() {
     const h = hitAt(p);
     if (h && h.down) {
       const d = h.down(p, e);
-      if (d) { App.drag = d; d.cursor = h.cursor; cv.setPointerCapture(e.pointerId); }
+      if (d) { App.drag = d; d.cursor = d.cursor || h.cursor; cv.setPointerCapture(e.pointerId); }
     }
   });
   cv.addEventListener('pointermove', (e) => {
@@ -1159,7 +1190,7 @@ function bindInput() {
   window.addEventListener('keydown', (e) => {
     const k = e.key, mod = e.ctrlKey || e.metaKey;
     if (e.target && e.target.tagName === 'INPUT') return;
-    if (App.title) { if (k === 'Enter' || k === ' ') { App.title = false; Engine.ensure(); e.preventDefault(); } return; }
+    if (App.title) { if (k === 'Enter' || k === ' ') { e.preventDefault(); startFresh(); } return; }
     if (k === 'Escape') { if (App.menu) App.menu = null; else if (App.popups.length) closePopup(); else App.sel.clear(); return; }
     if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); redo(); return; }
@@ -1192,7 +1223,9 @@ function boot() {
   G.init(document.getElementById('screen'));
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('scribblebox.song.v2') || 'null'); } catch (e) { saved = null; }
-  if (saved) setSong(saved, false); else { loadExample(); App.toast = null; }
+  // the title page decides what to open; a song with notes in it can be picked up again
+  if (saved && saved.patterns && saved.patterns.some((p) => p.notes && p.notes.length)) App.saved = saved;
+  setSong(SongKit.newSong());
   centerRoll();
   bindInput();
   if (G.portrait) App.rowH = 12;

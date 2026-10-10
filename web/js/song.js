@@ -22,11 +22,11 @@ const noteName = (n) => NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
 
 function newSong() {
   const s = {
-    format: 'wiggly-1', title: 'untitled', bpm: 120, patternSize: 16, channels: 8,
+    format: 'sbox-1', title: 'untitled', bpm: 120, patternSize: 16, channels: 6,
     instruments: [
-      { name: 'piano 1', preset: 'piano1', vol: 0.7, look: 0 },
-      { name: 'nes triangle', preset: 'chip_triangle', vol: 0.7, look: 1 },
-      { name: 'standard kit', preset: 'kit_standard', vol: 0.8, look: 3 },
+      { name: 'piano', preset: 'piano1', vol: 0.7, look: 1 },
+      { name: '8-bit bass', preset: 'chip_triangle', vol: 0.7, look: 0 },
+      { name: 'drum kit', preset: 'kit_standard', vol: 0.8, look: 2 },
     ],
     patterns: [{ inst: 0, notes: [] }],
     arrangement: { bars: [], loop: null },
