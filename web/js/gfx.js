@@ -51,6 +51,7 @@ const G = {
     this.pats.cyanstripes = mk(['##..', '.##.', '..##', '#..#'], CYAN, PAPER);
     this.pats.paper = mk(['......', '......', '......', '......', '......', '#.....'], INK, PAPER);
     this.pats.light = mk(['#...', '....', '....', '....'], INK, PAPER);
+    this.pats.veil = mk(['#.', '..'], INK, null);
   },
   // ---------- fonts ----------
   buildFonts() {

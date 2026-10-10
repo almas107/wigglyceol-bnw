@@ -209,12 +209,12 @@ function bottomItems(avail) {
 
 // ---------- top: tape menu + title ----------
 const MENUS = {
-  file: [['new song', () => { if (confirm('Start a new song? (the current one is autosaved until you do)')) { Player.stop(); setSong(SongKit.newSong()); App.pat = 0; App.inst = 0; centerRoll(); } }],
+  file: [['new song', () => askConfirm('start over with an empty song?', 'yes, new song', () => { Player.stop(); setSong(SongKit.newSong()); App.pat = 0; App.inst = 0; centerRoll(); })],
     ['open... (.sbox .mid .flp)', () => openFile()], ['save', () => saveSong()], ['-'],
     ['export WAV', () => exportWav()], ['export MIDI', () => download(SongKit.exportMidi(App.song), App.song.title + '.mid')], ['-'],
     ['example song: Smart Race', () => loadExample()], ['load your own .sf2...', () => openSf2()]],
   edit: [['undo  (ctrl+z)', () => undo()], ['redo  (ctrl+y)', () => redo()], ['-'], ['select all  (ctrl+a)', () => selectAll()], ['copy notes  (ctrl+c)', () => copySel()], ['paste notes  (ctrl+v)', () => pasteSel()], ['delete notes  (del)', () => deleteSel()], ['-'], ['longer notes  (num +)', () => resizeNotes(1)], ['shorter notes  (num -)', () => resizeNotes(-1)]],
-  song: [['rename song...', () => { const t = prompt('Song title', App.song.title); if (t) mutate(() => { App.song.title = t.slice(0, 40); }, true); }],
+  song: [['rename song...', () => renameSong()],
     ['new page', () => newPattern(false)], ['copy this page  (ctrl+d)', () => newPattern(true)], ['tidy unused pages', () => pruneP()], ['-'],
     ['add a track', () => mutate(() => { App.song.channels = Math.min(MAX_CHANNELS, App.song.channels + 1); }, true)],
     ['remove last track', () => mutate(() => { App.song.channels = Math.max(1, App.song.channels - 1); }, true)],
@@ -245,7 +245,7 @@ function drawTop() {
   if (sx > x + 4) {
     G.rect(sx + 2, 4, w, 15, INK); G.rect(sx, 2, w, 15, YELLOW); G.wrect(sx, 2, w, 15, 0.5, INK, 0.6);
     G.hand(title, sx + 7, 3, 13, INK, 0.5);
-    region({ x: sx, y: 2, w, h: 15 }, { cursor: 'pointer', down: tap(() => { const t = prompt('Song title', App.song.title); if (t) mutate(() => { App.song.title = t.slice(0, 40); }, true); }) });
+    region({ x: sx, y: 2, w, h: 15 }, { cursor: 'pointer', down: tap(renameSong) });
   }
 }
 
@@ -748,13 +748,13 @@ function drawBottom(L) {
 
 // ---------- popups: notes taped onto the desk ----------
 function dialog(w, h, title, draw, o = {}) { App.popups.push({ w, h, title, draw, o }); }
-function closePopup() { App.popups.pop(); }
+function closePopup() { const pp = App.popups.pop(); if (pp && pp.o.onClose) pp.o.onClose(); }
 function drawPopups() {
   App.popups.forEach((pp, idx) => {
     const top = idx === App.popups.length - 1;
     const w = Math.min(pp.w, G.W - 8), h = Math.min(pp.h, G.H - 8);
     const x = Math.floor((G.W - w) / 2), y = Math.floor((G.H - h) / 2);
-    if (top) { G.x.fillStyle = G.pats.light; G.x.fillRect(0, 0, G.W, G.H); region({ x: 0, y: 0, w: G.W, h: G.H }, { down: tap(() => closePopup()), wheel: () => {} }); }
+    if (top) { G.x.fillStyle = G.pats.veil; G.x.fillRect(0, 0, G.W, G.H); region({ x: 0, y: 0, w: G.W, h: G.H }, { down: tap(() => closePopup()), wheel: () => {} }); }
     paper(x, y, w, h);
     tape(x + 8, y - 4, 26, 9, -0.2); tape(x + w - 34, y - 4, 26, 9, 0.2);
     G.hand(pp.title, x + 12, y + 5, 16, INK, 0.5);
@@ -767,6 +767,35 @@ function drawPopups() {
     pp.draw({ x: x + 10, y: y + 30, w: w - 20, h: h - 36 }, top);
   });
 }
+// In-page replacements for confirm() / prompt(), which embedded viewers block.
+function askConfirm(msg, yes, onYes) {
+  dialog(260, 96, 'are you sure?', (r) => {
+    G.text(msg, r.x, r.y, 'body', INK);
+    let x = r.x;
+    x += word(x, r.y + 24, yes, () => { closePopup(); onYes(); }, { size: 13, underline: true, hl: PINK }) + 16;
+    word(x, r.y + 24, 'never mind', () => closePopup(), { size: 13, underline: true });
+  });
+}
+function askText(title, value, onOk) {
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = value; inp.maxLength = 40; inp.id = 'sb-text';
+  inp.setAttribute('aria-label', title);
+  Object.assign(inp.style, { position: 'fixed', border: 'none', outline: 'none', background: 'transparent', color: '#000', fontFamily: '"Patrick Hand", "Comic Sans MS", cursive', padding: '0', margin: '0' });
+  document.body.appendChild(inp);
+  const done = (ok) => { if (!inp.isConnected) return; const v = inp.value.trim(); closePopup(); if (ok && v) onOk(v); };
+  inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
+  setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  dialog(260, 92, title, (r) => {
+    const fy = r.y + 2, fw = r.w;
+    G.wline(r.x, fy + 16, r.x + fw, fy + 17, 0.5, INK, 0.6);
+    const cr = G.screen.getBoundingClientRect(), k = cr.width / G.W;
+    Object.assign(inp.style, { left: cr.left + r.x * k + 'px', top: cr.top + (fy - 1) * k + 'px', width: fw * k + 'px', height: 17 * k + 'px', fontSize: 14 * k + 'px' });
+    let x = r.x;
+    x += word(x, r.y + 28, 'ok', () => done(true), { size: 13, underline: true }) + 16;
+    word(x, r.y + 28, 'cancel', () => done(false), { size: 13, underline: true });
+  }, { onClose: () => inp.remove() });
+}
+function renameSong() { askText('song title', App.song.title, (t) => mutate(() => { App.song.title = t.slice(0, 40); }, true)); }
 function openAbout() {
   dialog(300, 196, APP_NAME, (r) => {
     const lines = ['a super easy music box that wiggles.', '',
@@ -796,7 +825,7 @@ function openTweak(i) {
     const p = presetOf(inst);
     let y = r.y;
     icon(familyOf(inst), r.x, y - 2, 18, lookCap(inst.look) === INK ? PAPER : lookCap(inst.look));
-    word(r.x + 24, y, G.handFit(inst.name, 110, 14), () => { const n = prompt('Instrument name', inst.name); if (n) mutate(() => { inst.name = n.slice(0, 24); }, true); }, { size: 14, underline: true });
+    word(r.x + 24, y, G.handFit(inst.name, 110, 14), () => askText('instrument name', inst.name, (n) => mutate(() => { inst.name = n.slice(0, 24); }, true)), { size: 14, underline: true });
     word(r.x + 150, y, 'change sound', () => openBrowser(i), { size: 13, underline: true });
     y += 17;
     G.text('sounds like: ' + G.fit(p.name, r.w - 90), r.x + 24, y, 'body', INK);
@@ -826,12 +855,13 @@ function openTweak(i) {
 function deleteInstrument(i) {
   const s = App.song;
   if (s.instruments.length <= 1) { toast('need at least one instrument'); return; }
-  if (!confirm('Remove "' + s.instruments[i].name + '"? Its pages move to the first instrument.')) return;
-  mutate(() => {
-    s.instruments.splice(i, 1);
-    s.patterns.forEach((p) => { if (p.inst === i) p.inst = 0; else if (p.inst > i) p.inst--; });
+  askConfirm('remove "' + s.instruments[i].name + '"? its pages move to the first one.', 'yes, bin it', () => {
+    mutate(() => {
+      s.instruments.splice(i, 1);
+      s.patterns.forEach((p) => { if (p.inst === i) p.inst = 0; else if (p.inst > i) p.inst--; });
+    });
+    App.inst = 0; closePopup();
   });
-  App.inst = 0; closePopup();
 }
 function addInstrument() {
   mutate(() => { App.song.instruments.push({ name: 'grand piano', preset: 'sgm_piano1', vol: 0.7, look: App.song.instruments.length % LOOKS.length }); App.song = SongKit.normalizeSong(App.song); }, true);
@@ -1098,6 +1128,7 @@ function bindInput() {
   cv.addEventListener('wheel', (e) => { e.preventDefault(); const h = hitAt(toLogical(e)); if (h && h.wheel) h.wheel(e); }, { passive: false });
   window.addEventListener('keydown', (e) => {
     const k = e.key, mod = e.ctrlKey || e.metaKey;
+    if (e.target && e.target.tagName === 'INPUT') return;
     if (App.title) { if (k === 'Enter' || k === ' ') { App.title = false; Engine.ensure(); e.preventDefault(); } return; }
     if (k === 'Escape') { if (App.menu) App.menu = null; else if (App.popups.length) closePopup(); else App.sel.clear(); return; }
     if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
