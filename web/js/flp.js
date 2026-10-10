@@ -77,16 +77,16 @@ function guessPreset(name, plugin) {
   const list = Synth.PRESET_LIST;
   const exact = list.find((p) => p.name.toLowerCase() === n);
   if (exact) return exact.id;
-  if (/^\d{3}$/.test(n)) { const pc = list.find((p) => p.group === 'pc98_ym2608' && p.name === n); if (pc) return pc.id; }
-  const kits = { brush: 'kit_brush', techno: 'kit_techno', '808': 'kit_electronic', electronic: 'kit_electronic', power: 'kit_power', orchestra: 'kit_orchestra', drum: 'kit_standard', kit: 'kit_standard', '4opfm': 'fm4op_perc' };
+  if (/^\d{3}$/.test(n) && Synth.P['fm_' + n]) return 'fm_' + n;
+  const kits = { brush: 'kit_brush', techno: 'kit_techno', '808': 'kit_electronic', electronic: 'kit_electronic', power: 'kit_power', orchestra: 'kit_orchestra', drum: 'kit_standard', kit: 'kit_standard', '4opfm': 'kit_fm' };
   for (const [k, id] of Object.entries(kits)) if (n.includes(k)) return id;
-  if (pl.includes('3x osc')) return n.includes('square') ? 'osc3_square' : n.includes('sine') ? 'osc3_sine' : 'osc3_saw';
-  if (n.includes('nes') || pl.includes('nes')) return 'nes_square';
+  if (pl.includes('3x osc')) return n.includes('square') ? 'syn_square' : n.includes('sine') ? 'syn_sine' : 'syn_saw';
+  if (n.includes('nes') || pl.includes('nes')) return 'chip_square';
   const partial = list.find((p) => n && p.name.toLowerCase().includes(n));
   if (partial) return partial.id;
   const words = n.split(/\W+/).filter((w) => w.length > 2);
   const fuzzy = list.find((p) => words.some((w) => p.name.toLowerCase().includes(w)));
-  return fuzzy ? fuzzy.id : 'sgm_piano1';
+  return fuzzy ? fuzzy.id : 'piano1';
 }
 
 window.importFlp = importFlp;

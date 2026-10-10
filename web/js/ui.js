@@ -34,14 +34,14 @@ window.App = App;
 // ---------- song helpers ----------
 function pattern() { return App.song.patterns[App.pat]; }
 function instOf(p) { return App.song.instruments[(p || pattern()).inst]; }
-function presetOf(inst) { return PRESETS[inst.preset] || (inst.preset.startsWith('sf2:') ? { kind: 'tone', group: 'Your Soundfonts', name: inst.preset.split(':').slice(1).join(' ') } : PRESETS.sgm_piano1); }
+function presetOf(inst) { return PRESETS[inst.preset] || (inst.preset.startsWith('sf2:') ? { kind: 'tone', group: 'Your Soundfonts', name: inst.preset.split(':').slice(1).join(' ') } : PRESETS.piano1); }
 function familyOf(inst) { return presetOf(inst).group || 'Keys'; }
 function isDrums(inst) { const p = presetOf(inst); return p.kind === 'kit' && !p.role; }
 function mutate(fn, keepSel) { History.push(App.song); fn(); if (!keepSel) App.sel.clear(); changed(); }
 let saveTimer = 0;
 function changed() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { try { localStorage.setItem('scribblebox.song', JSON.stringify(App.song)); } catch (e) { /* storage off */ } }, 400);
+  saveTimer = setTimeout(() => { try { localStorage.setItem('scribblebox.song.v2', JSON.stringify(App.song)); } catch (e) { /* storage off */ } }, 400);
 }
 function setSong(s, keepHistory) {
   App.song = SongKit.normalizeSong(s);
@@ -182,13 +182,13 @@ function layout() {
     const rw = clamp(Math.round(W * 0.22), 110, 160);
     L.right = { x: W - rw - pad, y: L.top.h + 4, w: rw, h: L.bottom.y - L.top.h - 10 };
     const workW = L.right.x - pad * 2 - 4;
-    const arrH = clamp(22 + App.song.channels * 7, 56, Math.round(H * 0.3));
+    const arrH = clamp(26 + App.song.channels * 11, 70, Math.round(H * 0.34));
     L.roll = { x: pad + 2, y: L.top.h + 6, w: workW, h: L.bottom.y - L.top.h - 16 - arrH - 6 };
     L.arr = { x: pad + 2, y: L.roll.y + L.roll.h + 8, w: workW, h: arrH };
   } else {
     const rh = 66;
     L.right = { x: pad, y: L.bottom.y - rh - 6, w: W - pad * 2, h: rh, horizontal: true };
-    const arrH = clamp(22 + App.song.channels * 6, 56, 100);
+    const arrH = clamp(26 + App.song.channels * 9, 64, 130);
     L.arr = { x: pad + 2, y: L.right.y - arrH - 8, w: W - pad * 2 - 4, h: arrH };
     L.roll = { x: pad + 2, y: L.top.h + 6, w: W - pad * 2 - 4, h: L.arr.y - L.top.h - 16 };
   }
@@ -212,7 +212,7 @@ const MENUS = {
   file: [['new song', () => askConfirm('start over with an empty song?', 'yes, new song', () => { Player.stop(); setSong(SongKit.newSong()); App.pat = 0; App.inst = 0; centerRoll(); })],
     ['open... (.sbox .mid .flp)', () => openFile()], ['save', () => saveSong()], ['-'],
     ['export WAV', () => exportWav()], ['export MIDI', () => download(SongKit.exportMidi(App.song), App.song.title + '.mid')], ['-'],
-    ['example song: Smart Race', () => loadExample()], ['load your own .sf2...', () => openSf2()]],
+    ['demo song: Paper Planes', () => loadExample()], ['load your own .sf2...', () => openSf2()]],
   edit: [['undo  (ctrl+z)', () => undo()], ['redo  (ctrl+y)', () => redo()], ['-'], ['select all  (ctrl+a)', () => selectAll()], ['copy notes  (ctrl+c)', () => copySel()], ['paste notes  (ctrl+v)', () => pasteSel()], ['delete notes  (del)', () => deleteSel()], ['-'], ['longer notes  (num +)', () => resizeNotes(1)], ['shorter notes  (num -)', () => resizeNotes(-1)]],
   song: [['rename song...', () => renameSong()],
     ['new page', () => newPattern(false)], ['copy this page  (ctrl+d)', () => newPattern(true)], ['tidy unused pages', () => pruneP()], ['-'],
@@ -220,6 +220,7 @@ const MENUS = {
     ['remove last track', () => mutate(() => { App.song.channels = Math.max(1, App.song.channels - 1); }, true)],
     ['insert bar at the flag', () => mutate(() => { App.song.arrangement.bars.splice(App.startBar, 0, new Array(MAX_CHANNELS).fill(-1)); }, true)],
     ['delete bar at the flag', () => mutate(() => { App.song.arrangement.bars.splice(App.startBar, 1); App.song.arrangement.bars.push(new Array(MAX_CHANNELS).fill(-1)); }, true)],
+    ['play whole song (no loop)', () => { App.song.arrangement.loop = null; changed(); toast('looping off'); }],
     ['swing on / off', () => mutate(() => { App.song.swing = App.song.swing ? 0 : 1; }, true)]],
   sounds: [['add an instrument...', () => addInstrument()], ['tweak this instrument...', () => openTweak(App.inst)], ['change its sound...', () => openBrowser(App.inst)]],
   help: [['how to use', () => openHelp()], ['about', () => openAbout()], ['title page', () => { App.title = true; }]],
@@ -281,7 +282,7 @@ function drawRoll(L) {
   const nm = G.handFit(inst.name, 80, 12);
   const nw = G.handW(nm, 12);
   if (hx + nw + 20 < R.x + R.w - 64) {
-    G.x.fillStyle = lookFill(inst.look); G.x.fillRect(hx + 12, hy + 6, nw + 4, 6);
+    G.rect(hx + 12, hy + 6, nw + 4, 6, hlColor(inst.look));
     icon(familyOf(inst), hx, hy - 1, 12, lookCap(inst.look) === INK ? PAPER : lookCap(inst.look));
     G.hand(nm, hx + 14, hy, 12, lookCap(inst.look) === INK ? INK : INK, 0.4);
     region({ x: hx - 1, y: hy - 1, w: nw + 16, h: 14 }, { cursor: 'pointer', down: tap(() => openBrowser(p.inst)) });
@@ -481,16 +482,14 @@ function rollDown(pt, e) {
 }
 
 // ---------- film strip (the song) ----------
+function hlColor(look) { const c = lookCap(look); return c === INK ? YELLOW : c; }
 function drawArr(L) {
   const R = L.arr, song = App.song, ps = song.patternSize;
-  const hole = 8;
-  G.rect(R.x + 2, R.y + 3, R.w, R.h, INK);
-  G.rect(R.x, R.y, R.w, R.h, INK);
-  for (let x = R.x + 4; x < R.x + R.w - 4; x += 9) { G.roundRect(x, R.y + 2, 5, 4, 1, PAPER, null); G.roundRect(x, R.y + R.h - 6, 5, 4, 1, PAPER, null); }
-  const lab = 12, numH = 9;
-  const gx = R.x + lab, gy = R.y + hole + numH, gw = R.w - lab - 4, gh = R.h - hole * 2 - numH - 1;
+  paper(R.x, R.y, R.w, R.h);
+  const lab = 14, head = 12, sb = 5;
+  const gx = R.x + lab, gy = R.y + head + 2, gw = R.w - lab - 5, gh = R.h - head - sb - 7;
   const chans = song.channels;
-  const rh = Math.max(4, Math.floor(gh / chans));
+  const rh = Math.max(5, Math.floor(gh / chans));
   const cw = G.portrait ? 12 : 14;
   const visBars = Math.floor(gw / cw);
   const total = Math.max(songLength(song) + 8, visBars, 16);
@@ -498,33 +497,62 @@ function drawArr(L) {
   if (pos >= 0) { const pb = Math.floor(pos / ps); if (pb < App.arrScroll || pb >= App.arrScroll + visBars) App.arrScroll = clamp(pb - 1, 0, Math.max(0, total - visBars)); }
   App.arrScroll = clamp(App.arrScroll, 0, Math.max(0, total - visBars));
   const s0 = App.arrScroll;
-  const [la, lb] = song.arrangement.loop;
-  G.clip(gx, R.y, gw, R.h);
+  const xOf = (bar) => gx + (bar - s0) * cw;
+  const loop = song.arrangement.loop;
+  G.clip(gx, R.y + 1, gw, R.h - 2);
+  // lanes and bar lines
+  for (let c = 1; c < chans; c++) for (let x = gx; x < gx + gw; x += 3) G.rect(x, gy + c * rh - 1, 1, 1, CYAN);
   for (let b = 0; b < visBars + 1; b++) {
     const bar = s0 + b, x = gx + b * cw;
-    if (bar >= la && bar < lb) G.rect(x, R.y + hole, cw, 2, YELLOW);
-    if (bar % 4 === 0) G.text(String(bar + 1), x + 1, R.y + hole - 1, 'mono', PAPER);
+    if (bar % 4 === 0) { G.rect(x, gy, 1, chans * rh, CYAN); G.text(String(bar + 1), x + 2, R.y + 1, 'mono', INK); }
+  }
+  // loop section: a yellow band with brackets
+  if (loop) {
+    const x0 = xOf(loop[0]), x1 = xOf(loop[1]);
+    G.rect(x0, R.y + 2, x1 - x0, head - 3, YELLOW);
+    G.rect(x0, R.y + 2, 1, head - 1, INK); G.rect(x1 - 1, R.y + 2, 1, head - 1, INK); G.rect(x0, R.y + 2, 3, 1, INK); G.rect(x1 - 3, R.y + 2, 3, 1, INK);
+    for (let b = loop[0]; b < loop[1]; b++) if (b % 4 === 0) G.text(String(b + 1), xOf(b) + 2, R.y + 1, 'mono', INK);
+  }
+  // blocks
+  for (let b = 0; b < visBars + 1; b++) {
+    const bar = s0 + b, x = gx + b * cw;
+    const live = pos >= 0 && Math.floor(pos / ps) === bar;
     for (let c = 0; c < chans; c++) {
-      const y = gy + c * rh, pi = (song.arrangement.bars[bar] || [])[c];
-      if (pi == null || pi < 0) { G.rect(x + cw / 2, y + rh / 2, 1, 1, PAPER); continue; }
+      const pi = (song.arrangement.bars[bar] || [])[c];
+      if (pi == null || pi < 0) continue;
       const q = song.patterns[pi]; if (!q) continue;
-      const live = pos >= 0 && Math.floor(pos / ps) === bar;
-      const cur = pi === App.pat;
-      G.wcapsule(x + 1, y + (live ? -1 : 0), cw - 2, rh - 1, cur ? PAPER : lookFill(instOf(q).look), cur ? PINK : PAPER, live ? 1.2 : 0.4);
-      if (rh >= 9) { const t = String(pi + 1); G.text(t, x + Math.floor((cw - G.textW(t, 'mono')) / 2), y + Math.floor((rh - 11) / 2), 'mono', INK); }
+      const look = instOf(q).look, fill = lookCap(look);
+      const y = gy + c * rh + (live ? -1 : 0);
+      G.roundRect(x + 1, y + 1, cw - 2, rh - 2, 2, fill, INK, 1);
+      if (((look % LOOKS.length) + LOOKS.length) % LOOKS.length >= 4) G.rect(x + 3, y + Math.floor(rh / 2), cw - 6, 1, PAPER);
+      if (pi === App.pat) G.roundRect(x, y, cw, rh, 3, null, INK, 1);
     }
   }
-  if (App.startBar >= s0 && App.startBar < s0 + visBars + 1) { const x = gx + (App.startBar - s0) * cw; G.rect(x, R.y + hole, 1, gh + numH, PINK); G.rect(x, R.y + hole, 5, 4, PINK); }
-  if (pos >= 0) { const x = gx + (pos / ps - s0) * cw; G.wline(x, R.y + hole, x, gy + chans * rh, 0.6, YELLOW, 1, 6); }
+  // start flag + playhead
+  if (App.startBar >= s0 && App.startBar <= s0 + visBars) { const x = xOf(App.startBar); G.rect(x, R.y + 2, 1, head + chans * rh, PINK); G.x.fillStyle = PINK; for (let k = 0; k < 4; k++) G.rect(x, R.y + 2 + k, 6 - k * 1.5, 1, PINK); }
+  if (pos >= 0) { const x = Math.round(gx + (pos / ps - s0) * cw); G.rect(x, R.y + 2, 2, head + chans * rh, PINK); }
   G.unclip();
-  for (let c = 0; c < chans; c++) if (rh >= 9) G.text(String(c + 1), R.x + 3, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', PAPER);
-  scrollbarH({ x: gx, y: R.y + R.h - 7, w: gw, h: 6 }, s0, total, visBars, (v) => { App.arrScroll = v; });
+  G.rect(gx - 1, gy, 1, chans * rh, INK);
+  for (let c = 0; c < chans; c++) if (rh >= 9) G.text(String(c + 1), R.x + 3, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', INK);
+  scrollbarH({ x: gx, y: R.y + R.h - sb - 3, w: gw, h: sb }, s0, total, visBars, (v) => { App.arrScroll = v; });
   App.arrGeom = { gx, gy, cw, rh, s0, chans };
-  region({ x: gx, y: R.y + hole - 2, w: gw, h: numH + 2 }, { cursor: 'pointer', down: (pt) => {
-    const b0 = s0 + Math.floor((pt.x - gx) / cw);
+  // bar numbers: click = play from here (whole song), drag = loop that section
+  region({ x: gx, y: R.y + 1, w: gw, h: head + 1 }, { cursor: 'pointer', down: (pt) => {
+    const b0 = Math.max(0, s0 + Math.floor((pt.x - gx) / cw));
     let moved = false;
-    return { move(q) { const b1 = s0 + Math.floor((q.x - gx) / cw); if (b1 !== b0) moved = true; if (moved) song.arrangement.loop = [Math.min(b0, b1), Math.max(b0, b1) + 1]; },
-      up() { if (!moved) { App.startBar = b0; if (Player.playing) { Player.stop(); play(); } } changed(); } };
+    const apply = (b1) => {
+      if (b1 !== b0) moved = true;
+      if (moved) { song.arrangement.loop = [Math.min(b0, b1), Math.max(b0, b1) + 1]; App.startBar = Math.min(b0, b1); }
+    };
+    return {
+      move(q) { apply(Math.max(0, s0 + Math.floor((q.x - gx) / cw))); },
+      up() {
+        if (!moved) { song.arrangement.loop = null; App.startBar = b0; }
+        changed();
+        toast(song.arrangement.loop ? `looping bars ${song.arrangement.loop[0] + 1}-${song.arrangement.loop[1]}` : `playing from bar ${b0 + 1}`);
+        if (Player.playing) { Player.stop(); play('song'); }
+      },
+    };
   }, wheel: (e) => { App.arrScroll += Math.sign(e.deltaY || e.deltaX); } });
   region({ x: gx, y: gy, w: gw, h: chans * rh }, { cursor: App.tool === 'scissors' ? 'not-allowed' : 'pointer', down: arrDown, wheel: (e) => { App.arrScroll += Math.sign(e.deltaY || e.deltaX); }, hover: () => { App.hover = { kind: 'arr' }; } });
 }
@@ -551,7 +579,7 @@ function arrDown(pt, e) {
   if (cur === App.pat) { bars[c.bar][c.ch] = -1; changed(); return { move() {}, up() {} }; }
   const paint = (q) => { const k = arrCell(q); if (k.bar < 0) return; ensure(k.bar); if (bars[k.bar][k.ch] !== App.pat) { bars[k.bar][k.ch] = App.pat; changed(); } };
   paint(pt);
-  return { move: paint, up() { const l = songLength(song); if (song.arrangement.loop[1] < l) song.arrangement.loop[1] = l; } };
+  return { move: paint, up() {} };
 }
 
 // ---------- the instrument shelf ----------
@@ -561,11 +589,12 @@ function drawShelfItem(inst, i, x, y, w, h, active, live) {
   if (active) G.wellipse(x + s / 2 + 2, y + h / 2, s / 2 + 3, h / 2 + 1, 0.5, INK, 1);
   icon(familyOf(inst), x + 2, y + (h - s) / 2 + bounce, s, lookCap(inst.look) === INK ? PAPER : lookCap(inst.look));
   const nx = x + s + 7, nw = w - s - 9;
-  const name = G.handFit(inst.name, nw, 12);
-  if (active) { G.x.fillStyle = lookFill(inst.look); G.x.fillRect(nx - 2, y + h / 2, G.handW(name, 12) + 4, 5); }
-  G.hand(name, nx, y + Math.floor((h - 14) / 2), 12, INK, live ? 1.2 : 0.4);
+  const name = G.handFit(inst.name, nw, 13);
+  const ty = y + Math.floor((h - 15) / 2);
+  if (active) G.rect(nx - 2, ty + 7, G.handW(name, 13) + 4, 7, hlColor(inst.look));
+  G.hand(name, nx, ty, 13, INK, 0);
   const off = inst.mute || (App.song.instruments.some((q) => q.solo) && !inst.solo);
-  if (off) G.wline(nx - 2, y + h / 2, nx + G.handW(name, 12) + 2, y + h / 2 - 2, 0.5, INK, 1);
+  if (off) G.rect(nx - 2, ty + 9, G.handW(name, 13) + 4, 1, INK);
 }
 function drawRight(L) {
   const R = L.right, song = App.song;
@@ -799,8 +828,8 @@ function renameSong() { askText('song title', App.song.title, (t) => mutate(() =
 function openAbout() {
   dialog(300, 196, APP_NAME, (r) => {
     const lines = ['a super easy music box that wiggles.', '',
-      `${PRESET_LIST.length} built-in instruments, synthesized stand-ins`, 'for every sound in the DELTARUNE sample', 'sheet (no samples copied).', 'got real .sf2 files? file > load your own .sf2', '',
-      'thanks: song engine ideas from Bosca Ceoil (MIT),', 'small pixel fonts from Decker (MIT).'];
+      `${PRESET_LIST.length} built-in instruments, all synthesized`, 'right here in your browser.', 'got .sf2 soundfonts? file > load your own .sf2', '',
+      'thanks: song engine ideas from Bosca Ceoil (MIT),', 'small pixel fonts from Decker (MIT),', 'Patrick Hand + Gochi Hand fonts (OFL).'];
     lines.forEach((l, i) => G.text(l, r.x, r.y + i * 12, 'body', INK));
   });
 }
@@ -810,8 +839,8 @@ function openHelp() {
       ['click the page', 'stamp a note (drag right = longer)'], ['drag a note', 'move it; grab its tail to stretch'], ['right click', 'snip it (or use the scissors)'],
       ['shift + drag', 'lasso some notes'], ['numpad + / -', 'longer / shorter notes'], ['ctrl+z / ctrl+y', 'undo / redo (the snail)'],
       ['arrow keys', 'nudge the chosen notes'], ['ctrl+c / ctrl+v', 'copy / paste notes'], ['ctrl+d', 'copy this page'], ['delete', 'remove the chosen notes'],
-      ['space', 'play / stop'], ['film strip', 'click = put this page there, drag = paint'], ['', 'click a block = open it, right click = clear'],
-      ['film numbers', 'click = start here, drag = loop'], ['instruments', 'click = this page plays it'], ['', 'double click = tweak it'], ['ctrl + wheel', 'zoom the page'],
+      ['space', 'play / stop'], ['song strip', 'click = put this page there, drag = paint'], ['', 'click a block = open it, right click = clear'],
+      ['bar numbers', 'click = play from there, drag = loop bars'], ['instruments', 'click = this page plays it'], ['', 'double click = tweak it'], ['ctrl + wheel', 'zoom the page'],
     ];
     L.forEach(([k, v], i) => { G.text(k, r.x, r.y + i * 13, 'body', INK); G.text(v, r.x + 92, r.y + i * 13, 'body', INK); });
   });
@@ -864,7 +893,7 @@ function deleteInstrument(i) {
   });
 }
 function addInstrument() {
-  mutate(() => { App.song.instruments.push({ name: 'grand piano', preset: 'sgm_piano1', vol: 0.7, look: App.song.instruments.length % LOOKS.length }); App.song = SongKit.normalizeSong(App.song); }, true);
+  mutate(() => { App.song.instruments.push({ name: 'grand piano', preset: 'piano1', vol: 0.7, look: App.song.instruments.length % LOOKS.length }); App.song = SongKit.normalizeSong(App.song); }, true);
   const i = App.song.instruments.length - 1;
   App.inst = i;
   openBrowser(i, true);
@@ -993,7 +1022,7 @@ function saveSong() { download(new Blob([JSON.stringify(App.song)], { type: 'app
 let exporting = false;
 async function exportWav() {
   if (exporting) return;
-  if (!songLength(App.song)) { toast('put a page on the film strip first'); return; }
+  if (!songLength(App.song)) { toast('put a page on the song strip first'); return; }
   exporting = true; toast('recording a wav... (this takes a moment)');
   try { const blob = await SongKit.renderWav(App.song); download(blob, App.song.title + '.wav'); toast('wav exported!'); } catch (e) { console.error(e); toast('export failed: ' + e.message); }
   exporting = false;
@@ -1033,10 +1062,10 @@ function loadExample() {
   Player.stop();
   setSong(JSON.parse(JSON.stringify(EXAMPLE_SONG)));
   App.pat = 0;
-  const lead = App.song.instruments.findIndex((i) => i.preset === 'osc3_square');
+  const lead = App.song.instruments.findIndex((i) => i.preset === 'syn_square');
   if (lead >= 0) { const bi = App.song.arrangement.bars.findIndex((r) => r.some((v) => v >= 0 && App.song.patterns[v].inst === lead)); if (bi >= 0) App.pat = App.song.arrangement.bars[bi].find((v) => v >= 0 && App.song.patterns[v].inst === lead); }
   App.inst = pattern().inst; App.startBar = 0; App.arrScroll = 0; centerRoll();
-  toast('Smart Race loaded - hit play on the boombox');
+  toast('Paper Planes loaded - hit play on the boombox');
 }
 
 // ---------- menus & toasts ----------
@@ -1161,7 +1190,7 @@ function bindInput() {
 function boot() {
   G.init(document.getElementById('screen'));
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('scribblebox.song') || 'null'); } catch (e) { saved = null; }
+  try { saved = JSON.parse(localStorage.getItem('scribblebox.song.v2') || 'null'); } catch (e) { saved = null; }
   if (saved) setSong(saved, false); else { loadExample(); App.toast = null; }
   centerRoll();
   bindInput();

@@ -24,12 +24,12 @@ function newSong() {
   const s = {
     format: 'wiggly-1', title: 'untitled', bpm: 120, patternSize: 16, channels: 8,
     instruments: [
-      { name: 'piano 1', preset: 'sgm_piano1', vol: 0.7, look: 0 },
-      { name: 'nes triangle', preset: 'nes_triangle', vol: 0.7, look: 1 },
+      { name: 'piano 1', preset: 'piano1', vol: 0.7, look: 0 },
+      { name: 'nes triangle', preset: 'chip_triangle', vol: 0.7, look: 1 },
       { name: 'standard kit', preset: 'kit_standard', vol: 0.8, look: 3 },
     ],
     patterns: [{ inst: 0, notes: [] }],
-    arrangement: { bars: [], loop: [0, 4] },
+    arrangement: { bars: [], loop: null },
   };
   return normalizeSong(s);
 }
@@ -39,15 +39,16 @@ function normalizeSong(s) {
   s.patternSize = Math.max(4, Math.min(32, s.patternSize | 0 || 16));
   s.channels = Math.max(1, Math.min(MAX_CHANNELS, s.channels | 0 || 8));
   s.title = s.title || 'untitled';
-  s.instruments = (s.instruments || []).map((it, i) => Object.assign({ name: 'instrument', preset: 'sgm_piano1', vol: 0.7, pan: 0, detune: 0, delay: 0, reverb: 0, glide: 0, vibrato: 0, octave: 0, look: i % LOOKS, mute: false, solo: false }, it));
-  if (!s.instruments.length) s.instruments.push({ name: 'piano 1', preset: 'sgm_piano1', vol: 0.7, pan: 0, detune: 0, delay: 0, reverb: 0, glide: 0, vibrato: 0, octave: 0, look: 0 });
+  s.instruments = (s.instruments || []).map((it, i) => Object.assign({ name: 'instrument', preset: 'piano1', vol: 0.7, pan: 0, detune: 0, delay: 0, reverb: 0, glide: 0, vibrato: 0, octave: 0, look: i % LOOKS, mute: false, solo: false }, it));
+  if (!s.instruments.length) s.instruments.push({ name: 'piano 1', preset: 'piano1', vol: 0.7, pan: 0, detune: 0, delay: 0, reverb: 0, glide: 0, vibrato: 0, octave: 0, look: 0 });
   s.patterns = (s.patterns || []).map((p) => ({ inst: Math.min(s.instruments.length - 1, Math.max(0, p.inst | 0)), key: p.key | 0, scale: p.scale | 0, notes: (p.notes || []).map((n) => [n[0] | 0, n[1] | 0, Math.max(1, n[2] | 0), n[3] == null ? 0.8 : +n[3]]) }));
   if (!s.patterns.length) s.patterns.push({ inst: 0, key: 0, scale: 0, notes: [] });
   const a = (s.arrangement = s.arrangement || {});
   a.bars = (a.bars || []).map((row) => { const r = []; for (let c = 0; c < MAX_CHANNELS; c++) { const v = row[c]; r.push(v == null || v < 0 || v >= s.patterns.length ? -1 : v | 0); } return r; });
   while (a.bars.length < 64) a.bars.push(new Array(MAX_CHANNELS).fill(-1));
-  a.loop = a.loop || [0, 4];
-  if (a.loop[1] <= a.loop[0]) a.loop = [0, Math.max(1, songLength(s))];
+  // loop: null plays the whole song; [from, to) bars loops just that section.
+  if (!Array.isArray(a.loop) || !(a.loop[1] > a.loop[0])) a.loop = null;
+  else if (a.loop[0] <= 0 && a.loop[1] >= songLength(s)) a.loop = null;
   return s;
 }
 
@@ -114,9 +115,8 @@ const Player = {
     const ps = song.patternSize;
     if (mode === 'song') {
       const len = Math.max(1, songLength(song));
-      let [a, b] = song.arrangement.loop;
+      let [a, b] = song.arrangement.loop || [0, len];
       if (b <= a || a >= len) { a = 0; b = len; }
-      b = Math.min(b, Math.max(len, a + 1));
       this.loopFrom = a * ps; this.loopTo = b * ps;
       this.startStep = fromBar != null && fromBar >= a && fromBar < b ? fromBar * ps : this.loopFrom;
     } else { this.loopFrom = 0; this.loopTo = ps; this.startStep = 0; }
@@ -230,10 +230,10 @@ function exportMidi(song) {
 }
 
 const GM_GUESS = [
-  [0, 7, 'sgm_piano1'], [8, 15, 'sgm_celesta'], [16, 23, 'sgm_organ'], [24, 31, 'sgm_nylon'], [32, 39, 'sgm_fingerbass'],
-  [40, 47, 'sgm_strings'], [48, 55, 'sgm_strings'], [52, 54, 'sgm_choir'], [56, 63, 'sgm_trumpet'], [64, 71, 'sgm_oboe'],
-  [72, 79, 'sgm_flute'], [80, 80, 'nes_square'], [81, 87, 'osc3_saw'], [88, 95, 'sgm_synthstr'], [96, 103, 'sgm_vibes'],
-  [104, 111, 'sgm_dulcimer'], [112, 119, 'sgm_tubular'], [120, 127, 'osc3_noise'],
+  [0, 7, 'piano1'], [8, 15, 'celesta'], [16, 23, 'organ'], [24, 31, 'nylon'], [32, 39, 'fingerbass'],
+  [40, 47, 'strings'], [48, 55, 'strings'], [52, 54, 'choir'], [56, 63, 'trumpet'], [64, 71, 'oboe'],
+  [72, 79, 'flute'], [80, 80, 'chip_square'], [81, 87, 'syn_saw'], [88, 95, 'synthstr'], [96, 103, 'vibes'],
+  [104, 111, 'dulcimer'], [112, 119, 'tubular'], [120, 127, 'syn_noise'],
 ];
 function importMidi(buf) {
   const d = new DataView(buf); let p = 0;
@@ -269,7 +269,7 @@ function importMidi(buf) {
   song.channels = Math.max(8, used.length);
   const bars = [];
   used.forEach((c, slot) => {
-    const preset = c.ch === 9 ? 'kit_standard' : (GM_GUESS.find(([a, b]) => c.prog >= a && c.prog <= b) || [0, 0, 'sgm_piano1'])[2];
+    const preset = c.ch === 9 ? 'kit_standard' : (GM_GUESS.find(([a, b]) => c.prog >= a && c.prog <= b) || [0, 0, 'piano1'])[2];
     song.instruments.push({ name: (c.name || (c.ch === 9 ? 'drums' : Synth.P[preset].name)).toLowerCase().slice(0, 18), preset, vol: 0.6, look: slot % LOOKS });
     const byBar = {};
     for (const [tick, note, len, vel] of c.notes) {

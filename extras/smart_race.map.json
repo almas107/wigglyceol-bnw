@@ -1,7 +1,7 @@
 {
   "2": {
     "name": "fm drums",
-    "preset": "fm4op_perc",
+    "preset": "kit_fm",
     "detune": -100,
     "keys": {
       "25": 36,
@@ -14,7 +14,7 @@
   },
   "3": {
     "name": "piano",
-    "preset": "sgm_piano1",
+    "preset": "piano1",
     "detune": -100,
     "vol": 0.7,
     "reverb": 0.15,
@@ -22,7 +22,7 @@
   },
   "4": {
     "name": "acid bass",
-    "preset": "sgm_acidbass",
+    "preset": "acidbass",
     "detune": -92,
     "glide": 0.06,
     "vol": 0.55,
@@ -49,14 +49,14 @@
   },
   "7": {
     "name": "fm bass",
-    "preset": "pc98_034",
+    "preset": "fm_034",
     "glide": 0.06,
     "vol": 0.7,
     "look": 6
   },
   "8": {
     "name": "fm chime",
-    "preset": "pc98_079",
+    "preset": "fm_079",
     "delay": 0.35,
     "vol": 0.45,
     "pan": 0.2,
@@ -64,7 +64,7 @@
   },
   "9": {
     "name": "square lead",
-    "preset": "osc3_square",
+    "preset": "syn_square",
     "glide": 0.05,
     "delay": 0.3,
     "vol": 0.4,
@@ -73,7 +73,7 @@
   },
   "10": {
     "name": "saw lead",
-    "preset": "osc3_saw",
+    "preset": "syn_saw",
     "delay": 0.3,
     "vol": 0.35,
     "pan": 0.15,
@@ -81,7 +81,7 @@
   },
   "11": {
     "name": "8-bit noise",
-    "preset": "nes_noise_long",
+    "preset": "chip_noise_long",
     "detune": -100,
     "vol": 0.4,
     "look": 7

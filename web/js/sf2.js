@@ -1,4 +1,4 @@
-// Minimal SoundFont 2 player: lets you drop your own .sf2 banks (SGM, etc.)
+// Minimal SoundFont 2 player: lets you drop in your own .sf2 banks
 // next to the built-in synthesized ones. Banks are kept in IndexedDB so they
 // survive a reload; songs reference them as "sf2:<bank>:<preset index>".
 

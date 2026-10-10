@@ -37,25 +37,25 @@ A super easy music box you scribble in. Open `index.html` in any modern browser
 
 171 built-in instruments, grouped by what they are (Keys, Bells, Guitar &
 Plucks, Bass, Strings, Voice, Brass, Woodwind, Organ & Squeezebox, Chiptune,
-Synth, Drums & Hits, Funny). Together they stand in for all 408 sounds listed
-in the DELTARUNE sample sheet (SGM, THInst, PC-98 FM, NES VST, Squidfont,
-Earthbound, …). Everything is synthesized in the browser: no samples are
-shipped. If you own the real `.sf2` banks, load them with
+Synth, Drums & Hits, Funny). Everything is synthesized in the browser; no
+samples are shipped. Load your own `.sf2` soundfonts with
 *file → load your own .sf2* and they appear under "Your Soundfonts".
-
-`js/sheet_bank.js` is generated from the sheet PDF with
-`tools/build_sheet_bank.py`.
 
 ## Files
 
 - Opens `.sbox` (its own format), `.mid` and FL Studio `.flp` projects.
 - Exports WAV and MIDI.
-- The example song, *Smart Race* (DELTARUNE Chapter 2, Toby Fox), was converted
-  from an FL Studio project with `tools/flp2wiggly.py --map tools/smart_race.map.json`.
+- The demo song, *Paper Planes*, is built by `tools/make_demo_song.py`.
+
+## Publishing on itch.io
+
+Run `python3 tools/build_itch.py` and upload `dist-itch/scribblebox.zip` as an
+HTML project ("This file will be played in the browser"). Suggested embed
+settings: viewport 1100 x 760, "Mobile friendly" on, fullscreen button on.
 
 ## Credits
 
 The song model (pages of notes arranged on a timeline) follows Bosca Ceoil
 (MIT). The small pixel fonts in `js/font.js` come from Decker by John Earnest
 (MIT). Handwriting fonts: Patrick Hand and Gochi Hand (SIL OFL) from Google
-Fonts.
+Fonts, bundled in `fonts/`. See `CREDITS.txt`.
