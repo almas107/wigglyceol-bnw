@@ -182,13 +182,13 @@ function layout() {
     const rw = clamp(Math.round(W * 0.22), 110, 160);
     L.right = { x: W - rw - pad, y: L.top.h + 4, w: rw, h: L.bottom.y - L.top.h - 10 };
     const workW = L.right.x - pad * 2 - 4;
-    const arrH = clamp(26 + App.song.channels * 11, 70, Math.round(H * 0.34));
+    const arrH = clamp(42 + App.song.channels * 11, 86, Math.round(H * 0.34));
     L.roll = { x: pad + 2, y: L.top.h + 6, w: workW, h: L.bottom.y - L.top.h - 16 - arrH - 6 };
     L.arr = { x: pad + 2, y: L.roll.y + L.roll.h + 8, w: workW, h: arrH };
   } else {
     const rh = 66;
     L.right = { x: pad, y: L.bottom.y - rh - 6, w: W - pad * 2, h: rh, horizontal: true };
-    const arrH = clamp(26 + App.song.channels * 9, 64, 130);
+    const arrH = clamp(40 + App.song.channels * 9, 80, 146);
     L.arr = { x: pad + 2, y: L.right.y - arrH - 8, w: W - pad * 2 - 4, h: arrH };
     L.roll = { x: pad + 2, y: L.top.h + 6, w: W - pad * 2 - 4, h: L.arr.y - L.top.h - 16 };
   }
@@ -485,9 +485,12 @@ function rollDown(pt, e) {
 function hlColor(look) { const c = lookCap(look); return c === INK ? YELLOW : c; }
 function drawArr(L) {
   const R = L.arr, song = App.song, ps = song.patternSize;
-  paper(R.x, R.y, R.w, R.h);
-  const lab = 14, head = 12, sb = 5;
-  const gx = R.x + lab, gy = R.y + head + 2, gw = R.w - lab - 5, gh = R.h - head - sb - 7;
+  // a strip of black film with sprocket holes
+  G.rect(R.x + 2, R.y + 3, R.w, R.h, INK);
+  G.rect(R.x, R.y, R.w, R.h, INK);
+  for (let x = R.x + 4; x < R.x + R.w - 4; x += 9) { G.roundRect(x, R.y + 2, 5, 4, 1, PAPER, null); G.roundRect(x, R.y + R.h - 6, 5, 4, 1, PAPER, null); }
+  const lab = 14, head = 11, sb = 5, hole = 8;
+  const gx = R.x + lab, gy = R.y + hole + head + 1, gw = R.w - lab - 5, gh = R.h - hole * 2 - head - sb - 3;
   const chans = song.channels;
   const rh = Math.max(5, Math.floor(gh / chans));
   const cw = G.portrait ? 12 : 14;
@@ -499,19 +502,19 @@ function drawArr(L) {
   const s0 = App.arrScroll;
   const xOf = (bar) => gx + (bar - s0) * cw;
   const loop = song.arrangement.loop;
-  G.clip(gx, R.y + 1, gw, R.h - 2);
+  const hy = R.y + hole;
+  G.clip(gx, R.y + hole, gw, R.h - hole * 2);
   // lanes and bar lines
-  for (let c = 1; c < chans; c++) for (let x = gx; x < gx + gw; x += 3) G.rect(x, gy + c * rh - 1, 1, 1, CYAN);
+  for (let c = 1; c < chans; c++) for (let x = gx; x < gx + gw; x += 4) G.rect(x, gy + c * rh - 1, 1, 1, PAPER);
   for (let b = 0; b < visBars + 1; b++) {
     const bar = s0 + b, x = gx + b * cw;
-    if (bar % 4 === 0) { G.rect(x, gy, 1, chans * rh, CYAN); G.text(String(bar + 1), x + 2, R.y + 1, 'mono', INK); }
+    if (bar % 4 === 0) { for (let y = gy; y < gy + chans * rh; y += 2) G.rect(x, y, 1, 1, PAPER); G.text(String(bar + 1), x + 2, hy - 1, 'mono', PAPER); }
   }
   // loop section: a yellow band with brackets
   if (loop) {
     const x0 = xOf(loop[0]), x1 = xOf(loop[1]);
-    G.rect(x0, R.y + 2, x1 - x0, head - 3, YELLOW);
-    G.rect(x0, R.y + 2, 1, head - 1, INK); G.rect(x1 - 1, R.y + 2, 1, head - 1, INK); G.rect(x0, R.y + 2, 3, 1, INK); G.rect(x1 - 3, R.y + 2, 3, 1, INK);
-    for (let b = loop[0]; b < loop[1]; b++) if (b % 4 === 0) G.text(String(b + 1), xOf(b) + 2, R.y + 1, 'mono', INK);
+    G.rect(x0, hy, x1 - x0, head - 1, YELLOW);
+    for (let b = loop[0]; b < loop[1]; b++) if (b % 4 === 0) G.text(String(b + 1), xOf(b) + 2, hy - 1, 'mono', INK);
   }
   // blocks
   for (let b = 0; b < visBars + 1; b++) {
@@ -521,23 +524,23 @@ function drawArr(L) {
       const pi = (song.arrangement.bars[bar] || [])[c];
       if (pi == null || pi < 0) continue;
       const q = song.patterns[pi]; if (!q) continue;
-      const look = instOf(q).look, fill = lookCap(look);
+      const look = instOf(q).look, cap = lookCap(look), fill = cap === INK ? PAPER : cap;
       const y = gy + c * rh + (live ? -1 : 0);
-      G.roundRect(x + 1, y + 1, cw - 2, rh - 2, 2, fill, INK, 1);
-      if (((look % LOOKS.length) + LOOKS.length) % LOOKS.length >= 4) G.rect(x + 3, y + Math.floor(rh / 2), cw - 6, 1, PAPER);
-      if (pi === App.pat) G.roundRect(x, y, cw, rh, 3, null, INK, 1);
+      G.roundRect(x + 1, y + 1, cw - 2, rh - 2, 2, fill, null);
+      if (((look % LOOKS.length) + LOOKS.length) % LOOKS.length >= 4) G.rect(x + 3, y + Math.floor(rh / 2), cw - 6, 1, INK);
+      if (cap === INK) for (let k = x + 3; k < x + cw - 3; k += 2) G.rect(k, y + Math.floor(rh / 2), 1, 1, INK);
+      if (pi === App.pat) G.roundRect(x, y, cw, rh, 3, null, PINK, 1);
     }
   }
   // start flag + playhead
-  if (App.startBar >= s0 && App.startBar <= s0 + visBars) { const x = xOf(App.startBar); G.rect(x, R.y + 2, 1, head + chans * rh, PINK); G.x.fillStyle = PINK; for (let k = 0; k < 4; k++) G.rect(x, R.y + 2 + k, 6 - k * 1.5, 1, PINK); }
-  if (pos >= 0) { const x = Math.round(gx + (pos / ps - s0) * cw); G.rect(x, R.y + 2, 2, head + chans * rh, PINK); }
+  if (App.startBar >= s0 && App.startBar <= s0 + visBars) { const x = xOf(App.startBar); G.rect(x, hy, 1, head + 1 + chans * rh, PINK); for (let k = 0; k < 4; k++) G.rect(x, hy + k, 6 - k * 1.5, 1, PINK); }
+  if (pos >= 0) { const x = Math.round(gx + (pos / ps - s0) * cw); G.rect(x, hy, 2, head + 1 + chans * rh, YELLOW); }
   G.unclip();
-  G.rect(gx - 1, gy, 1, chans * rh, INK);
-  for (let c = 0; c < chans; c++) if (rh >= 9) G.text(String(c + 1), R.x + 3, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', INK);
-  scrollbarH({ x: gx, y: R.y + R.h - sb - 3, w: gw, h: sb }, s0, total, visBars, (v) => { App.arrScroll = v; });
+  for (let c = 0; c < chans; c++) if (rh >= 9) G.text(String(c + 1), R.x + 4, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', PAPER);
+  scrollbarH({ x: gx, y: R.y + R.h - hole - sb, w: gw, h: sb }, s0, total, visBars, (v) => { App.arrScroll = v; });
   App.arrGeom = { gx, gy, cw, rh, s0, chans };
   // bar numbers: click = play from here (whole song), drag = loop that section
-  region({ x: gx, y: R.y + 1, w: gw, h: head + 1 }, { cursor: 'pointer', down: (pt) => {
+  region({ x: gx, y: hy - 2, w: gw, h: head + 3 }, { cursor: 'pointer', down: (pt) => {
     const b0 = Math.max(0, s0 + Math.floor((pt.x - gx) / cw));
     let moved = false;
     const apply = (b1) => {
@@ -826,9 +829,8 @@ function askText(title, value, onOk) {
 }
 function renameSong() { askText('song title', App.song.title, (t) => mutate(() => { App.song.title = t.slice(0, 40); }, true)); }
 function openAbout() {
-  dialog(300, 196, APP_NAME, (r) => {
+  dialog(300, 120, APP_NAME, (r) => {
     const lines = ['a super easy music box that wiggles.', '',
-      `${PRESET_LIST.length} built-in instruments, all synthesized`, 'right here in your browser.', 'got .sf2 soundfonts? file > load your own .sf2', '',
       'thanks: song engine ideas from Bosca Ceoil (MIT),', 'small pixel fonts from Decker (MIT),', 'Patrick Hand + Gochi Hand fonts (OFL).'];
     lines.forEach((l, i) => G.text(l, r.x, r.y + i * 12, 'body', INK));
   });
