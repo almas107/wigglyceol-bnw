@@ -1,3 +1,6 @@
+> **Scribblebox** — a super easy, hand-drawn music box for the browser lives in
+> [`web/`](web/README.md). Open `web/index.html` to play with it.
+
 <p align="center">
 	<img src="dist/logo-full.png">
 </p>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Scribblebox</title>
+<meta name="description" content="A super easy music box you scribble in.">
+<style>
+  @font-face { font-family: 'Patrick Hand'; src: url('fonts/PatrickHand-Regular.ttf') format('truetype'); font-display: swap; }
+  @font-face { font-family: 'Gochi Hand'; src: url('fonts/GochiHand-Regular.ttf') format('truetype'); font-display: swap; }
+  :root { --ink: #000; --paper: #fff; }
+  html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden; overscroll-behavior: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; -webkit-user-select: none; user-select: none; }
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<script src="js/font.js"></script>
+<script src="js/sheet_bank.js"></script>
+<script src="js/synth.js"></script>
+<script src="js/sf2.js"></script>
+<script src="js/song.js"></script>
+<script src="js/flp.js"></script>
+<script src="js/example.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+{
+  "2": {
+    "name": "fm drums",
+    "preset": "kit_fm",
+    "detune": -100,
+    "keys": {
+      "25": 36,
+      "38": 38,
+      "39": 39,
+      "40": 40
+    },
+    "vol": 0.8,
+    "look": 0
+  },
+  "3": {
+    "name": "piano",
+    "preset": "piano1",
+    "detune": -100,
+    "vol": 0.7,
+    "reverb": 0.15,
+    "look": 1
+  },
+  "4": {
+    "name": "acid bass",
+    "preset": "acidbass",
+    "detune": -92,
+    "glide": 0.06,
+    "vol": 0.55,
+    "look": 2
+  },
+  "5": {
+    "name": "brush drums",
+    "preset": "kit_brush",
+    "detune": -100,
+    "vol": 0.7,
+    "look": 4
+  },
+  "6": {
+    "name": "techno drums",
+    "preset": "kit_techno",
+    "detune": -100,
+    "keys": {
+      "12": 36,
+      "39": 39,
+      "120": 49
+    },
+    "vol": 0.75,
+    "look": 5
+  },
+  "7": {
+    "name": "fm bass",
+    "preset": "fm_034",
+    "glide": 0.06,
+    "vol": 0.7,
+    "look": 6
+  },
+  "8": {
+    "name": "fm chime",
+    "preset": "fm_079",
+    "delay": 0.35,
+    "vol": 0.45,
+    "pan": 0.2,
+    "look": 1
+  },
+  "9": {
+    "name": "square lead",
+    "preset": "syn_square",
+    "glide": 0.05,
+    "delay": 0.3,
+    "vol": 0.4,
+    "pan": -0.15,
+    "look": 0
+  },
+  "10": {
+    "name": "saw lead",
+    "preset": "syn_saw",
+    "delay": 0.3,
+    "vol": 0.35,
+    "pan": 0.15,
+    "look": 2
+  },
+  "11": {
+    "name": "8-bit noise",
+    "preset": "chip_noise_long",
+    "detune": -100,
+    "vol": 0.4,
+    "look": 7
+  }
+}
