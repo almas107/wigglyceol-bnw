@@ -967,7 +967,6 @@ function drawTitle() {
   const tsize = Math.round(bw / 7);
   for (const [dx, dy] of [[0, 0], [1, 0], [0, 1]]) G.handC(APP_NAME, cx + dx, by + bh / 2 - tsize * 0.6 + dy, tsize, INK, 1.4);
   G.handC('a music box you scribble in', cx, by + bh + 10, 14, INK, 0.6);
-  G.handC(`${PRESET_LIST.length} instruments  -  ctrl+z undo  -  works on phones`, cx, by + bh + 27, 12, INK, 0.3);
   const y = by + bh + 50;
   const r1w = G.handW("let's make noise!", 16) + 20;
   const r1 = { x: cx - r1w / 2, y, w: r1w, h: 22 };
