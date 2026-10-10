@@ -46,6 +46,9 @@ function normalizeSong(s) {
   const a = (s.arrangement = s.arrangement || {});
   a.bars = (a.bars || []).map((row) => { const r = []; for (let c = 0; c < MAX_CHANNELS; c++) { const v = row[c]; r.push(v == null || v < 0 || v >= s.patterns.length ? -1 : v | 0); } return r; });
   while (a.bars.length < 64) a.bars.push(new Array(MAX_CHANNELS).fill(-1));
+  // lanes: per-lane mixer (mute / solo / volume); master: overall output volume.
+  s.lanes = Array.from({ length: MAX_CHANNELS }, (_, i) => Object.assign({ mute: false, solo: false, vol: 1 }, (s.lanes || [])[i]));
+  s.master = s.master == null ? 1 : Math.max(0, Math.min(1.5, +s.master));
   // loop: null plays the whole song; [from, to) bars loops just that section.
   if (!Array.isArray(a.loop) || !(a.loop[1] > a.loop[0])) a.loop = null;
   else if (a.loop[0] <= 0 && a.loop[1] >= songLength(s)) a.loop = null;
@@ -69,6 +72,13 @@ const History = {
 
 // ---------- event collection ----------
 function anySolo(song) { return song.instruments.some((i) => i.solo); }
+// Lane gain: 0 when the lane is muted (or another lane is soloed), else its volume.
+function laneGain(song, c) {
+  if (c < 0 || !song.lanes) return 1;
+  const l = song.lanes[c]; if (!l) return 1;
+  const solo = song.lanes.slice(0, song.channels).some((q) => q.solo);
+  return (solo ? l.solo : !l.mute) ? l.vol : 0;
+}
 function audible(song, i) { const it = song.instruments[i]; if (!it) return false; return anySolo(song) ? it.solo : !it.mute; }
 
 // Notes that start inside [fromStep, toStep), in absolute steps.
@@ -142,6 +152,7 @@ const Player = {
     const sd = this.stepDur(song);
     const horizon = this.startStep + (ctx.currentTime + 0.15 - this.startTime) / sd;
     song.instruments.forEach((it, i) => E.mixer.applyInstrument(i, it, !audible(song, i)));
+    E.mixer.master.gain.value = 0.7 * (song.master ?? 1);
     E.mixer.setTempo(song.bpm);
     while (this.scheduledTo < horizon) {
       const s = this.scheduledTo, loc = this.wrap(s);
@@ -151,8 +162,9 @@ const Player = {
       const swing = song.swing ? ((Math.floor(loc) % 2) ? song.swing * sd * 0.33 : 0) : 0;
       for (const e of evs) {
         const inst = song.instruments[e.inst];
-        if (!inst || !audible(song, e.inst)) continue;
-        E.note(ctx, E.mixer, this.states, e.inst, inst, e.note, Math.max(ctx.currentTime, t + swing), e.len * sd * 0.98, e.vel);
+        const lg = laneGain(song, e.chan);
+        if (!inst || !audible(song, e.inst) || !lg) continue;
+        E.note(ctx, E.mixer, this.states, e.inst, inst, e.note, Math.max(ctx.currentTime, t + swing), e.len * sd * 0.98, e.vel * lg);
         this.recent.push({ time: t + swing, e });
       }
       this.scheduledTo += 1;
@@ -178,14 +190,16 @@ async function renderWav(song, onProgress) {
   const mixer = new Synth.Mixer(ctx, ctx.destination);
   mixer.setTempo(song.bpm);
   song.instruments.forEach((it, i) => mixer.applyInstrument(i, it, !audible(song, i)));
+  mixer.master.gain.value = 0.7 * (song.master ?? 1);
   const evs = collectSong(song, 0, len, []);
   evs.sort((a, b) => a.at - b.at);
   const states = [];
   for (const e of evs) {
     const inst = song.instruments[e.inst];
-    if (!inst || !audible(song, e.inst)) continue;
+    const lg = laneGain(song, e.chan);
+    if (!inst || !audible(song, e.inst) || !lg) continue;
     const swing = song.swing ? ((e.at % 2) ? song.swing * sd * 0.33 : 0) : 0;
-    Synth.Engine.note(ctx, mixer, states, e.inst, inst, e.note, 0.05 + e.at * sd + swing, e.len * sd * 0.98, e.vel);
+    Synth.Engine.note(ctx, mixer, states, e.inst, inst, e.note, 0.05 + e.at * sd + swing, e.len * sd * 0.98, e.vel * lg);
   }
   onProgress && onProgress(0.5);
   const buf = await ctx.startRendering();
@@ -289,5 +303,5 @@ function importMidi(buf) {
   return normalizeSong(song);
 }
 
-window.SongKit = { MAX_CHANNELS, LOOKS, SCALES, NOTE_NAMES, noteName, newSong, normalizeSong, songLength, History, Player, renderWav, exportMidi, importMidi, collectSong };
+window.SongKit = { laneGain, MAX_CHANNELS, LOOKS, SCALES, NOTE_NAMES, noteName, newSong, normalizeSong, songLength, History, Player, renderWav, exportMidi, importMidi, collectSong };
 })();

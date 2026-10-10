@@ -490,7 +490,7 @@ function drawArr(L) {
   G.rect(R.x + 2, R.y + 3, R.w, R.h, INK);
   G.rect(R.x, R.y, R.w, R.h, INK);
   for (let x = R.x + 4; x < R.x + R.w - 4; x += 9) { G.roundRect(x, R.y + 2, 5, 4, 1, PAPER, null); G.roundRect(x, R.y + R.h - 6, 5, 4, 1, PAPER, null); }
-  const lab = 14, head = 11, sb = 5, hole = 8;
+  const lab = 50, head = 11, sb = 5, hole = 8;
   const gx = R.x + lab, gy = R.y + hole + head + 1, gw = R.w - lab - 5, gh = R.h - hole * 2 - head - sb - 3;
   const chans = song.channels;
   const rh = Math.max(5, Math.floor(gh / chans));
@@ -533,27 +533,13 @@ function drawArr(L) {
       if (pi === App.pat) G.roundRect(x, y, cw, rh, 3, null, PINK, 1);
     }
   }
+  // muted lanes fade out under a dot screen
+  for (let c = 0; c < chans; c++) if (!SongKit.laneGain(song, c)) { G.x.fillStyle = G.pats.veil; G.x.fillRect(gx, gy + c * rh, gw, rh - 1); }
   // start flag + playhead
   if (App.startBar >= s0 && App.startBar <= s0 + visBars) { const x = xOf(App.startBar); G.rect(x, hy, 1, head + 1 + chans * rh, PINK); for (let k = 0; k < 4; k++) G.rect(x, hy + k, 6 - k * 1.5, 1, PINK); }
   if (pos >= 0) { const x = Math.round(gx + (pos / ps - s0) * cw); G.rect(x, hy, 2, head + 1 + chans * rh, YELLOW); }
   G.unclip();
-  for (let c = 0; c < chans; c++) {
-    const dragging = App.drag && App.drag.lane === c;
-    if (dragging) G.rect(R.x + 2, gy + c * rh, lab - 3, rh - 1, PINK);
-    if (rh >= 9) G.text(String(c + 1), R.x + 4, gy + c * rh + Math.floor((rh - 11) / 2), 'mono', dragging ? INK : PAPER);
-  }
-  // lane numbers: drag up/down to reorder whole lanes
-  region({ x: R.x, y: gy, w: lab, h: chans * rh }, { cursor: 'ns-resize', down: (pt) => {
-    const laneAt = (q) => clamp(Math.floor((q.y - gy) / rh), 0, chans - 1);
-    let pushed = false;
-    const d = { lane: laneAt(pt), cursor: 'ns-resize', move(q) {
-      const to = laneAt(q); if (to === d.lane) return;
-      if (!pushed) { History.push(song); pushed = true; }
-      for (const row of song.arrangement.bars) { const v = row.splice(d.lane, 1)[0]; row.splice(to, 0, v); }
-      d.lane = to; changed();
-    }, up() {} };
-    return d;
-  } });
+  drawLaneMixer(R, song, chans, gy, rh, hy, head);
   scrollbarH({ x: gx, y: R.y + R.h - hole - sb, w: gw, h: sb }, s0, total, visBars, (v) => { App.arrScroll = v; });
   App.arrGeom = { gx, gy, cw, rh, s0, chans };
   // bar numbers: click = play from here (whole song), drag = loop that section
@@ -605,6 +591,57 @@ function arrDown(pt, e) {
   const paint = (q) => { const k = arrCell(q); if (k.bar < 0) return; ensure(k.bar); if (bars[k.bar][k.ch] !== App.pat) { bars[k.bar][k.ch] = App.pat; changed(); } };
   paint(pt);
   return { move: paint, up() {} };
+}
+
+// Mini mixer down the left of the film: lane number (drag to reorder),
+// mute speaker, solo "S" and a volume bar per lane; master volume on top.
+function volBar(x, y, w, v, max, onSet, label) {
+  G.rect(x, y, w, 5, INK); G.frame1(x, y, w, 5, PAPER);
+  G.rect(x + 1, y + 1, Math.round((w - 2) * Math.min(1, v / max)), 3, YELLOW);
+  if (max > 1) G.rect(x + Math.round((w - 1) / max), y - 1, 1, 7, PAPER);
+  let pushed = false;
+  const set = (q) => { if (!pushed) { History.push(App.song); pushed = true; } onSet(clamp((q.x - x) / (w - 1), 0, 1) * max); changed(); };
+  region({ x: x - 2, y: y - 3, w: w + 4, h: 11 }, { cursor: 'ew-resize', down: (q) => { pushed = false; set(q); return { move: set, up() { toast(label()); } }; },
+    wheel: (e) => { History.push(App.song); onSet(clamp(v + (e.deltaY < 0 ? 0.05 : -0.05), 0, max)); changed(); } });
+}
+function speaker(x, y, on) {
+  G.rect(x, y + 2, 2, 3, PAPER); for (let k = 0; k < 3; k++) G.rect(x + 2 + k, y + 2 - k, 1, 3 + k * 2, PAPER);
+  if (on) { G.rect(x + 6, y + 2, 1, 3, PAPER); G.rect(x + 7, y + 1, 1, 5, PAPER); }
+  else { for (let k = 0; k < 4; k++) { G.rect(x + 6 + k, y + 1 + k, 1, 1, PINK); G.rect(x + 9 - k, y + 1 + k, 1, 1, PINK); } }
+}
+function drawLaneMixer(R, song, chans, gy, rh, hy, head) {
+  // master volume in the corner
+  speaker(R.x + 3, hy, song.master > 0);
+  volBar(R.x + 14, hy + 2, 32, song.master, 1.5, (v) => { song.master = v; }, () => 'master volume ' + Math.round(song.master * 100) + '%');
+  const anySolo = song.lanes.slice(0, chans).some((l) => l.solo);
+  for (let c = 0; c < chans; c++) {
+    const y = gy + c * rh, l = song.lanes[c], cy = y + Math.floor((rh - 7) / 2);
+    const dragging = App.drag && App.drag.lane === c;
+    if (dragging) G.rect(R.x + 2, y, 10, rh - 1, PINK);
+    if (rh >= 9) G.text(String(c + 1), R.x + 3, y + Math.floor((rh - 11) / 2), 'mono', dragging ? INK : PAPER);
+    // mute
+    speaker(R.x + 12, cy, !l.mute && !(anySolo && !l.solo));
+    region({ x: R.x + 11, y, w: 11, h: rh }, { cursor: 'pointer', down: tap(() => mutate(() => { l.mute = !l.mute; }, true)) });
+    // solo
+    if (l.solo) G.rect(R.x + 23, cy - 1, 7, 9, YELLOW);
+    G.text('S', R.x + 24, cy - 2, 'mono', l.solo ? INK : PAPER);
+    region({ x: R.x + 22, y, w: 9, h: rh }, { cursor: 'pointer', down: tap(() => mutate(() => { l.solo = !l.solo; }, true)) });
+    // volume
+    volBar(R.x + 32, cy + 1, 15, l.vol, 1, (v) => { l.vol = v; }, () => 'lane ' + (c + 1) + ' volume ' + Math.round(l.vol * 100) + '%');
+  }
+  // lane numbers: drag up/down to reorder whole lanes (mixer settings move too)
+  region({ x: R.x, y: gy, w: 11, h: chans * rh }, { cursor: 'ns-resize', down: (pt) => {
+    const laneAt = (q) => clamp(Math.floor((q.y - gy) / rh), 0, chans - 1);
+    let pushed = false;
+    const d = { lane: laneAt(pt), cursor: 'ns-resize', move(q) {
+      const to = laneAt(q); if (to === d.lane) return;
+      if (!pushed) { History.push(song); pushed = true; }
+      for (const row of song.arrangement.bars) { const v = row.splice(d.lane, 1)[0]; row.splice(to, 0, v); }
+      const lv = song.lanes.splice(d.lane, 1)[0]; song.lanes.splice(to, 0, lv);
+      d.lane = to; changed();
+    }, up() {} };
+    return d;
+  } });
 }
 
 // ---------- the instrument shelf ----------
@@ -858,12 +895,12 @@ function openAbout() {
   });
 }
 function openHelp() {
-  dialog(340, 306, 'how to', (r) => {
+  dialog(340, 320, 'how to', (r) => {
     const L = [
       ['click the page', 'stamp a note (drag right = longer)'], ['drag a note', 'move it; grab its tail to stretch'], ['right click', 'snip it (or use the scissors)'],
       ['shift + drag', 'lasso some notes'], ['numpad + / -', 'longer / shorter notes'], ['ctrl+z / ctrl+y', 'undo / redo (the snail)'],
       ['arrow keys', 'nudge the chosen notes'], ['ctrl+c / ctrl+v', 'copy / paste notes'], ['ctrl+d', 'copy this page'], ['delete', 'remove the chosen notes'],
-      ['space', 'play / stop'], ['song strip', 'click = put this page there, drag = paint'], ['', 'drag a block = move it (ctrl = copy)'], ['', 'right click = clear, drag lane number = reorder'],
+      ['space', 'play / stop'], ['song strip', 'click = put this page there, drag = paint'], ['', 'drag a block = move it (ctrl = copy)'], ['', 'right click = clear, drag lane number = reorder'], ['lane mixer', 'speaker = mute, S = solo, bar = volume'],
       ['bar numbers', 'click = play from there, drag = loop bars'], ['instruments', 'click = this page plays it'], ['', 'double click = tweak it'], ['ctrl + wheel', 'zoom the page'],
     ];
     L.forEach(([k, v], i) => { G.text(k, r.x, r.y + i * 13, 'body', INK); G.text(v, r.x + 92, r.y + i * 13, 'body', INK); });

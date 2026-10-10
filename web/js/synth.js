@@ -567,6 +567,7 @@ const Engine = {
     if (!inst) return;
     this.mixer.setTempo(song.bpm);
     this.mixer.applyInstrument(i, inst, false);
+    this.mixer.master.gain.value = 0.7 * (song.master ?? 1);
     this.note(ctx, this.mixer, [], i, inst, note, ctx.currentTime + 0.01, 0.35, vel);
   },
 };
